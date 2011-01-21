@@ -1,1 +1,102 @@
-See doc/index.html.
+siggen
+
+A signature generator for Jif
+
+Current Version: 0.2.1 (March 27, 2008)
+
+The Jif language allows programmers to check that their programs are information-flow secure. This requires that every source and sink in the program be labeled, including library functions. Signatures are used to specify the security behavior of library functions. Generating these signatures by hand can be tedious[1].
+
+siggen can automatically generate signatures for your Java and Jif files. It does not examine the bytecode to provide labels that match the security behavior of a library function.
+
+Dave King is the author and maintainer of siggen.
+	
+
+Signatures bridge the gap between the information-flow guarantees of Jif and the rest of the system, but must be generated manually.
+Installation
+
+You can download siggen 0.2.1 here (~5M). Use ant to build the files.
+Usage
+To use siggen, run siggenc in the bin directory with the appropriate arguments. siggenc takes four arguments, two of which are new:
+
+  # -sigext (class): extension to use for parsing the source file. By default, this is polyglot.frontend.JLExtensionInfo, meaning that siggen operates on files with extension jl, written in Java 1.4.
+
+    To parse Jif code, use the argument -sigext jif.ExtensionInfo.
+
+  # -sigout (directory): directory to output the signature files to. By default, this is sig-src.
+
+  # -sigcp (directory): set the signature classpath (from Jif)
+
+  # -addsigcp (directory): append to the signature classpath (from Jif) 
+
+If you are parsing Jif code that contains principals, be sure to add the directory containing those principals to the classpath. For example, to use the principals Alice, Bob, Chuck, Dolores, and Ethel provided by the Jif installation, add the line -classpath $JIF/tests to the arguments you give to siggenc. (assuming $JIF points to your Jif directory)
+
+Some more general statements about usage can be found here.
+Known Issues
+# The interaction between siggen, jifc, and polyglot can be shaky due to the Polyglot 2 scheduler (used by Jif). Compilation of large signatures will frequently crash, sometimes with a polyglot duplicate class error, sometimes with a "duplicate enum" error. These errors cannot (as I understand it) be fixed without redesigning the Polyglot scheduler.[4]
+
+If this happens, I have found the following mini-script should work to compile your signatures:
+
+    cd sig-src/
+    find . -name '*.jif' -exec jifc -d ../sig-classes {} \;
+
+This will be very slow but I have found that it works in many cases where the signature compiler fails. However, if this script fails, send me an email. I can provide you with updated a polyglot .jar file that should not exhibit these crashes (at the cost of a lack of stability), and for which this script will work.
+
+Another method that has been tried to compile signatures without difficulty uses ant. Email me for more information.
+Example
+
+Jif Signatures for Java Card Applets: Java Card is an application framework that allows developers to write Java code that can run on Java-enabled smartcards.
+
+Wallet is a small Java Card application that uses certain classes from the Java Card API; for example, the APDU (an input/output device) and ISOException (a type of exception). Download a version of Wallet: java, jif[2].
+
+To generate signatures for the Java version of Wallet (contains no labelings), run the command:
+
+    siggenc -classpath javacardframework.jar Wallet.jl 
+
+Here javacardframework.jar is the jar file containing the Java Card API framework[3].
+
+To generate signatures for the Jif version of Wallet (contains some labeling of PIN), run the command:
+
+    siggenc -sigext jif.ExtensionInfo -classpath javacardframework.jar:$JIF/tests Wallet.jif 
+
+The output from this should look something like:
+
+generate signature for polyglot class: javacard.framework.ISOException
+generate signature for polyglot class: javacard.framework.OwnerPIN
+generate signature for polyglot class: javacard.framework.APDU
+generate signature for polyglot class: javacard.framework.ISO7816
+generate signature for polyglot class: javacard.framework.Applet
+generate signature for polyglot class: java.lang.Throwable
+
+These signatures can then be compiled with Jif:
+
+    jifc -d sig-classes sig-src/javacard/framework/*.jif 
+
+siggen does its best to generate a minimal set of signatures. Note that even though OwnerPIN implements the PIN interface, because the PIN interface is not directly referenced in the source code, we do not generate its signature.
+
+Specifying jifsig.jar as part of the signature classpath using -addsigcp will prevent siggen from re-generating signatures: for example, java.lang.Throwable would not be generated in the above list, as this is a signature class from the default Jif installation..
+Comments
+# siggen is distributed under the Jif License.
+
+# The jif.jar distributed with siggen is a slightly modified version of the jar distributed with Jif 3.1.1. Currently, siggen will not work with an out-of-the-box Jif 3.1.1 jar. However, signature files generated by one are compatible will the the other.
+
+# Jif does not allow nested classes, and therefore we cannot generate signature files that contain nested classes. To avoid this, we remove signatures of nested classes and put them into their own signature file. For example, Map.Entry is a nested class in java.util.Map. The signature for Map.Entry will be placed in sig-src/java/util/MapEntry.jif. You will need to modify your source file to take this into account.
+
+# You can replace jifsig.jar in the lib directory with a custom Jif signature jar. (However, the serialization information must agree with the jif.jar in the same directory)
+
+# The signature files generated by siggen may not compile with older versions of Jif unless you use a ClassLoader that loads Java 1.4 class files, due to a change in how Java treats overriding return types in Java 1.5.
+
+# Since siggen 0.2.0, siggen supports automatic class parameterization using the -param command. Check the CHANGES log to see the details of how this works, and some important exceptions to keep in mind.
+To Do:
+
+# Signature generation for Java 1.5 using the UCLA Polyglot5 project (possibly straightforward).
+
+# Signature generation for Polyglot extensions other than Jif (requires re-design of SignatureGenerator to be more extensible)
+Notes
+
+[1] Boniface Hicks, Kiyan Ahmadizadeh, and Patrick McDaniel. Understanding practical application development in security-typed languages. In 22st Annual Computer Security Applications Conference (ACSAC), Miami, Fl, December 2006.
+
+[2] Wallet.jif will not compile under jifc; it is intended only to demonstrate how siggen can use the Jif parser.
+
+[3] javacardframework.jar not available here due to licensing restrictions. It can be obtained from the Java Card site in the Java Card SDK.
+
+[4] The main difficulty is that when polyglot parses a source file, it inserts some state into its persistent objects. Later, if that run is aborted, it fails without restoring its original state. When it re-enters the file later, the old state remains, causing polyglot to think that there's a duplicate class. I haven't tracked down what's causing the "duplicate enum" issues in the Jif compiler, but I wouldn't be surprised to learn it's the same thing.
