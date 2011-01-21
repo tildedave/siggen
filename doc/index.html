@@ -1,0 +1,169 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+  <head>
+    <title>siggen</title>
+  </head>
+
+  <body>
+<p><table>
+<tr>
+<td>
+<img src = "siggen.png" alt="siggen">
+<br><i>A signature generator for Jif</i> <br><br><p>The <a
+href="http://www.cs.cornell.edu/jif">Jif</a> language allows
+programmers to check that their programs are information-flow secure.
+This requires that every source and sink in the program be labeled,
+including library functions.  Signatures are used to specify the
+security behavior of library functions.  Generating these signatures
+by hand can be tedious<sup><a href="#ref1">[1]</a></sup>.
+
+<p><tt>siggen</tt> can automatically generate signatures for your Java
+and Jif files.  It does not examine the bytecode to provide labels
+that match the security behavior of a library function.  
+
+<p><a href="http://www.cse.psu.edu/~dhking">Dave King</a> is the
+author and maintainer of <tt>siggen</tt>.
+</td>
+<td>
+<p align="right"> 
+<img src="siggen-diagram.png" float=right alt="Signatures bridge the gap between the information-flow guarantees of Jif and the rest of the system, but must be generated manually.">
+</p>
+</td>
+</tr>
+</table>
+
+<h2>Installation</h2>
+
+<p>You can download siggen 0.2.0 <a href="http://www.cse.psu.edu/~dhking/siggen/siggen-0.2.0.tar.bz">here</a> (~5M).
+Use <tt>ant</tt> to build the files.
+
+<h2>Usage</h2>
+
+To use siggen, run <tt>siggenc</tt> in the <tt>bin</tt> directory with
+the appropriate arguments.  <tt>siggenc</tt> takes four arguments, two
+of which are new:
+
+<blockquote>
+<p><li><tt>-sigext (class)</tt>: extension to use for parsing the source
+file.  By default, this is <tt>polyglot.frontend.JLExtensionInfo</tt>,
+meaning that siggen operates on files with extension <tt>jl</tt>,
+written in Java 1.4.  <p>To parse Jif code, use the argument <tt>-sigext
+jif.ExtensionInfo</tt>.
+<p><li><tt>-sigout (directory)</tt>: directory to output the signature
+files to.  By default, this is <tt>sig-src</tt>.
+<p><li><tt>-sigcp (directory)</tt>: set the signature classpath (from Jif)
+<p><li><tt>-addsigcp (directory)</tt>: append to the signature classpath (from Jif)
+</blockquote>
+
+<p>If you are parsing Jif code that contains principals, be sure to
+add the directory containing those principals to the classpath.  For
+example, to use the principals Alice, Bob, Chuck, Dolores, and Ethel
+provided by the Jif installation, add the line <tt>-classpath
+$JIF/tests</tt> to the arguments you give to <tt>siggenc</tt>.
+(assuming <tt>$JIF</tt> points to your Jif directory)
+
+<p>Some more general statements about usage can be found <a href="usage.html">here</a>.
+
+<h2>Example</h2>
+
+<p><b>Jif Signatures for Java Card Applets:</b> <a
+href="http://java.sun.com/products/javacard/">Java Card</a> is an
+application framework that allows developers to write Java code that
+can run on Java-enabled smartcards.
+
+<p><a
+href="http://developers.sun.com/mobility/javacard/articles/intro/">Wallet</a>
+is a small Java Card application that uses certain classes from the
+Java Card API; for example, the <tt>APDU</tt> (an input/output device)
+and <tt>ISOException</tt> (a type of exception).  Download a version
+of Wallet: <a href="http://www.cse.psu.edu/~dhking/siggen/Wallet.jl">java</a>, <a href="http://www.cse.psu.edu/~dhking/siggen/Wallet.jif">jif</a><sup><a href="#ref2">[2]</a></sup>.
+
+<p>To generate signatures for the Java version of Wallet (contains no labelings), run the command:
+<blockquote>
+<p><tt>siggenc -classpath javacardframework.jar Wallet.jl</tt>
+</blockquote>
+<p>Here <tt>javacardframework.jar</tt> is the jar file containing the Java Card API framework<sup><a href="#ref3">[3]</a></sup>.
+<p>To generate signatures for the Jif version of Wallet (contains some labeling of PIN), run the command:
+<blockquote>
+<p><tt>siggenc -sigext jif.ExtensionInfo -classpath javacardframework.jar:$JIF/tests Wallet.jif</tt>
+</blockquote>
+
+<p>The output from this should look something like:
+
+<pre>
+generate signature for polyglot class: javacard.framework.ISOException
+generate signature for polyglot class: javacard.framework.OwnerPIN
+generate signature for polyglot class: javacard.framework.APDU
+generate signature for polyglot class: javacard.framework.ISO7816
+generate signature for polyglot class: javacard.framework.Applet
+generate signature for polyglot class: java.lang.Throwable
+</pre>
+
+<p>These signatures can then be compiled with Jif:
+
+<blockquote>
+<p><tt>jifc -d sig-classes sig-src/javacard/framework/*.jif</tt>
+</blockquote>
+
+<p><tt>siggen</tt> does its best to generate a minimal set of signatures.
+Note that even though <tt>OwnerPIN</tt> implements the <tt>PIN</tt>
+interface, because the <tt>PIN</tt> interface is not directly
+referenced in the source code, we do not generate its signature.
+
+<p>Specifying <tt>jifsig.jar</tt> as part of the signature classpath
+using <tt>-addsigcp</tt> will prevent <tt>siggen</tt> from
+re-generating signatures: for example, <tt>java.lang.Throwable</tt>
+would not be generated in the above list, as this is a signature class
+from the default Jif installation..
+
+<h2>Comments</h2>
+
+<li><tt>siggen</tt> is distributed under the Jif License. 
+
+<p><li>The <tt>jif.jar</tt> distributed with <tt>siggen</tt> is a
+slightly modified version of the jar distributed with Jif 3.1.1.
+Currently, <tt>siggen</tt> will not work with an out-of-the-box Jif
+3.1.1 jar.  However, signature files generated by one are compatible
+will the the other.
+
+<p><li>Jif does not allow nested classes, and therefore we cannot
+generate signature files that contain nested classes.  To avoid this,
+we remove signatures of nested classes and put them into their own
+signature file.  For example, <tt>Map.Entry</tt> is a nested class in
+<tt>java.util.Map</tt>.  The signature for <tt>Map.Entry</tt> will be
+placed in <tt>sig-src/java/util/MapEntry.jif</tt>.  You will need to
+modify your source file to take this into account.
+
+<p><li>You can replace <tt>jifsig.jar</tt> in the <tt>lib</tt>
+directory with a custom Jif signature jar.  (However, the
+serialization information must agree with the <tt>jif.jar</tt> in the
+same directory)
+
+<p><li>The signature files generated by <tt>siggen</tt> may not
+compile with older versions of Jif unless you use a ClassLoader that
+loads Java 1.4 class files, due to a change in how Java treats
+overriding return types in Java 1.5.
+
+<p><li>Since <tt>siggen</tt> 0.2.0, <tt>siggen</tt> supports automatic 
+class parameterization using the <tt>-param</tt> command.  Check the 
+CHANGES log to see the details of how this works, and some important 
+exceptions to keep in mind.
+
+<h2>To Do:</h2>
+
+<p><li>Signature generation for Java 1.5 using the UCLA <a href="http://www.cs.ucla.edu/~milanst/projects/polyglot5/">Polyglot5</a> project (possibly straightforward).
+<p><li>Signature generation for Polyglot extensions other than Jif (requires re-design of SignatureGenerator to be more extensible)
+
+<h2>Notes</h2>
+
+<p><a name="ref1"></a>[1] Boniface Hicks, Kiyan Ahmadizadeh, and Patrick McDaniel. Understanding practical application development in security-typed languages. In 22st Annual Computer Security Applications Conference (ACSAC), Miami, Fl, December 2006.
+<p><a name="ref2"></a>[2] <tt>Wallet.jif</tt> will not compile under <tt>jifc</tt>; it is intended only to demonstrate how <tt>siggen</tt> can use the Jif parser.
+<p><a name="ref3"></a>[3] <tt>javacardframework.jar</tt> not available here due to licensing restrictions.  It can be obtained from the <a href="http://java.sun.com/products/javacard/">Java Card</a> site in the Java Card SDK.
+    <hr>
+    <address><a href="mailto:dhking_at_cse_dot_psu_dot_edu">David H King</a></address>
+<!-- Created: Fri Nov 30 08:53:30 EST 2007 -->
+<!-- hhmts start -->
+Last modified: Mon Dec  3 17:13:46 EST 2007
+<!-- hhmts end -->
+  </body>
+</html>

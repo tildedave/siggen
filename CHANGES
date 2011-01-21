@@ -1,0 +1,48 @@
+0.2.0
+--------------
+February 7, 2008
+* types returned from a method are now properly marked as needing import
+* RuntimeException is now determined to be properly used when a runtime exception is thrown
+* automatically parameterize classes using the "-param" argument.  This 
+  creates parameterized signatures for classes.  i.e. if a library class B
+  is parameterized with a label L, then every argument to B will also be 
+  labeled/parameterized with B.  This acts as a conservative labeling of 
+  library files that prevents implicit flows.  
+  
+EXCEPTIONS:
+
+  While conservative, this does not give each method a begin label of {L} -- 
+  I believe these situations are uncommon enough (one or two per class) so 
+  that manually labeling methods that have side effects will not be (too) 
+  difficult.
+
+  Jif does not allow java.lang.Object and java.lang.Throwable to be 
+  parameterized.  This creates a difficulty with method override.
+  As java.lang.Object cannot be parameterized, methods in java.lang.Object
+  that involve parameterized classes will be parameterized with the label 
+  [{this}].  If a parameterized class extends java.lang.Object and overrides 
+  one of these methods, the signature cannot be compiled.  
+  
+  For example, if java.lang.String is parameterized and your code calls 
+  Object.toString(), then the generated signature for Object will contain
+  
+  class Object {
+  	public native String[{this}] toString();
+  }
+  
+  if there is another class Fubar that overrides toString, it will look like:
+  
+  class Fubar[label L] {
+    public native String[L] toString();
+  } 
+  
+  On compilation, Jif will not allow Fubar to be compiled, as it has a more 
+  restrictive method return label on the toString method than the label on the
+  Object method.
+  
+  At present, this situation is not detected by siggen.  Be careful!
+
+0.1.0 
+--------------
+November 30, 2007
+* Initial release of siggen.

@@ -1,0 +1,24 @@
+/*
+* This is a Jif signature for the Java class. It provides Jif label
+* annotations for the Java class, allowing it to be usable by Jif
+* code. There is no automated check that the signature provided here
+* agrees with the actual Java code.
+*
+* Automatically generated with Siggen 0.1.0.
+* Available from: http://www.cse.psu.edu/~dhking/siggen
+*/
+
+package java.security;
+
+import java.security.PublicKey;
+import java.lang.String;
+import java.lang.Object;
+
+public abstract class Signature extends Object {
+	static int __JIF_SIG_OF_JAVA_CLASS$20030619 = 0; // jif signature of a java class
+	public Signature() { }
+	native public static Signature{v0} getInstance(String v0);
+	native public final void initVerify(PublicKey v1);
+	native public final void update(byte v2);
+	native public final boolean{this; v3} verify(byte[] v3);
+}
